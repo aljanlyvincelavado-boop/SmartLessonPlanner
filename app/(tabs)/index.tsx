@@ -4,11 +4,29 @@ import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, St
 
 type AppView = 'auth' | 'dashboard' | 'create';
 
+// TODO: replace with your computer's local IP (e.g. http://192.168.1.5:5000) when testing on a phone/emulator.
+// 'localhost' only works when running the app in a web browser on the same machine as the server.
+const API_URL = 'http://localhost:5000';
+
 const subjects = ['Mathematics', 'Science', 'English', 'Filipino', 'Araling Panlipunan', 'Computer Programming', 'Physical Education'];
 const grades = ['Grade 1-3', 'Grade 4-6', 'Grade 7-9', 'Grade 10-12'];
 const colors = { ink: '#173B36', paper: '#FCFAF5', accent: '#E07A5F', pale: '#E7F0E6', muted: '#788580', line: '#DCE4DC' };
 
-type AuthProps = { isRegistering: boolean; setIsRegistering: (value: boolean) => void; onSubmit: () => void };
+type AuthProps = {
+  isRegistering: boolean;
+  setIsRegistering: (value: boolean) => void;
+  onSubmit: () => void;
+  firstname: string;
+  lastname: string;
+  age: string;
+  birthdate: string;
+  setFirstname: (value: string) => void;
+  setLastname: (value: string) => void;
+  setAge: (value: string) => void;
+  setBirthdate: (value: string) => void;
+  isSubmitting: boolean;
+  errorMessage: string;
+};
 type FormProps = { subject: string; grade: string; topic: string; objectives: string; setSubject: (value: string) => void; setGrade: (value: string) => void; setTopic: (value: string) => void; setObjectives: (value: string) => void; onBack: () => void };
 
 export default function HomeScreen() {
@@ -20,14 +38,71 @@ export default function HomeScreen() {
   const [topic, setTopic] = useState('');
   const [objectives, setObjectives] = useState('');
 
+  // New profile fields
+  const [firstname, setFirstname] = useState('');
+  const [lastname, setLastname] = useState('');
+  const [age, setAge] = useState('');
+  const [birthdate, setBirthdate] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
   useEffect(() => {
     const timer = setTimeout(() => setIsSplashVisible(false), 1100);
     return () => clearTimeout(timer);
   }, []);
 
+  async function handleAuthSubmit() {
+    // Sign-in doesn't need to hit the /api/users endpoint (that's just for saving new profiles).
+    if (!isRegistering) {
+      setView('dashboard');
+      return;
+    }
+
+    if (!firstname || !lastname || !age || !birthdate) {
+      setErrorMessage('Please fill in first name, last name, age, and birthdate.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstname, lastname, age: Number(age), birthdate }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to save your details.');
+      }
+
+      setView('dashboard');
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong. Check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   if (isSplashVisible) return <View style={styles.splash}><View style={styles.logoMark}><Ionicons name="sparkles" size={28} color={colors.ink} />
   </View><Text style={styles.splashTitle}>LessonPlanner</Text><Text style={styles.splashCaption}>Plan with purpose.</Text></View>;
-  if (view === 'auth') return <AuthScreen isRegistering={isRegistering} setIsRegistering={setIsRegistering} onSubmit={() => setView('dashboard')} />;
+  if (view === 'auth') return <AuthScreen
+    isRegistering={isRegistering}
+    setIsRegistering={setIsRegistering}
+    onSubmit={handleAuthSubmit}
+    firstname={firstname}
+    lastname={lastname}
+    age={age}
+    birthdate={birthdate}
+    setFirstname={setFirstname}
+    setLastname={setLastname}
+    setAge={setAge}
+    setBirthdate={setBirthdate}
+    isSubmitting={isSubmitting}
+    errorMessage={errorMessage}
+  />;
   if (view === 'create') return <LessonForm subject={subject} grade={grade} topic={topic} objectives={objectives} setSubject={setSubject} setGrade={setGrade} setTopic={setTopic} setObjectives={setObjectives} onBack={() => setView('dashboard')} />;
   return <Dashboard onCreate={() => setView('create')} onSignOut={() => setView('auth')} />;
 }
@@ -39,15 +114,20 @@ function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { l
 
 // SIGN IN PAGE --------
 
-function AuthScreen({ isRegistering, setIsRegistering, onSubmit }: AuthProps) {
+function AuthScreen({ isRegistering, setIsRegistering, onSubmit, firstname, lastname, age, birthdate, setFirstname, setLastname, setAge, setBirthdate, isSubmitting, errorMessage }: AuthProps) {
   return <SafeAreaView style={styles.safeArea}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled">
     <Brand /><View style={styles.authIntro}><Text style={styles.eyebrow}>YOUR CLASSROOM, CLEARER</Text><Text style={styles.heading}>{isRegistering ? 'Create your account.' : 'Make every lesson count.'}</Text><Text style={styles.mutedText}>{isRegistering ? 'Start building thoughtful lessons in minutes.' : 'A calm space for thoughtful teaching and better preparation.'}</Text></View>
-    {isRegistering && <Field label="Full name" placeholder="Alex Morgan" />}
+    {isRegistering && <>
+      <Field label="First name" placeholder="Alex" value={firstname} onChangeText={setFirstname} />
+      <Field label="Last name" placeholder="Morgan" value={lastname} onChangeText={setLastname} />
+      <Field label="Age" placeholder="28" keyboardType="numeric" value={age} onChangeText={setAge} />
+      <Field label="Birthdate" placeholder="YYYY-MM-DD" value={birthdate} onChangeText={setBirthdate} />
+    </>}
     <Field label="Email address" placeholder="you@school.com" keyboardType="email-address" />
     <Field label="Password" placeholder="At least 8 characters" secureTextEntry />
     <Field label="Confirm Password" placeholder="******" secureTextEntry />
-    
-    <Pressable style={styles.primaryButton} onPress={onSubmit}><Text style={styles.primaryButtonText}>{isRegistering ? 'Create account' : 'Sign in'}</Text><Ionicons name="arrow-forward" size={18} color={colors.paper} /></Pressable> 
+    {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+    <Pressable style={[styles.primaryButton, isSubmitting && styles.disabledButton]} disabled={isSubmitting} onPress={onSubmit}><Text style={styles.primaryButtonText}>{isSubmitting ? 'Saving…' : isRegistering ? 'Create account' : 'Sign in'}</Text><Ionicons name="arrow-forward" size={18} color={colors.paper} /></Pressable> 
     <Text style={styles.switchAuth} onPress={() => setIsRegistering(!isRegistering)}>Continue with google</Text>
     <Pressable style={styles.switchAuth} onPress={() => setIsRegistering(!isRegistering)}><Text style={styles.switchText}>{isRegistering ? 'Already have an account? ' : 'New to LessonPlanner? '}<Text style={styles.switchAction}>{isRegistering ? 'Sign in' : 'Register'}</Text></Text></Pressable>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
@@ -98,6 +178,7 @@ const styles = StyleSheet.create({
                    primaryButton: { height: 54, borderRadius: 11, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10 },
                     primaryButtonText: { color: colors.paper, fontSize: 16, fontWeight: '800' },
                      disabledButton: { opacity: 0.4 },
+                      errorText: { color: '#B3261E', fontSize: 13, marginBottom: 14, fontWeight: '600' },
                       switchAuth: { alignItems: 'center', marginTop: 24 },
                        switchText: { color: colors.muted, fontSize: 14 },
                         switchAction: { color: colors.ink, fontWeight: '800' },
