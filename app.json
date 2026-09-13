@@ -22,7 +22,8 @@
       },
       "jsEngine": "hermes",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.vinceeosteam.LessonPlanner"
     },
     "web": {
       "output": "static",
@@ -46,6 +47,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0fccc1f8-498d-4c5a-b5bc-ab54ecf87e5b"
+      }
     }
   }
 }
